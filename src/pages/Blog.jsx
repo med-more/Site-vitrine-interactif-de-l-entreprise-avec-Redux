@@ -315,6 +315,10 @@ const Blog = () => {
                     />
                   </div>
                   <div>
+
+
+
+                    
                     <label className="block text-sm font-semibold text-cream-200 mb-2">Image de l'article</label>
                     <div className="space-y-3">
                       {/* File Upload */}
