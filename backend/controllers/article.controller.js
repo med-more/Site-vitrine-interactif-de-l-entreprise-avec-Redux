@@ -29,7 +29,7 @@ const getArticle = async (req, res) => {
 
 const createArticle = async (req, res) => {
   try {
-    const { title, category, description, content, author, tagsa, image } =
+    const { title, category, description, content, author, tags, image } =
       req.body;
     const article = new Article({
       title,
@@ -37,12 +37,12 @@ const createArticle = async (req, res) => {
       description,
       content,
       author,
-      tagsa,
+      tags,
       image,
     });
 
     await article.save();
-    res.status(201).json({ message: "Article created successfully" });
+    res.status(201).json({ message: "Article created successfully", article });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

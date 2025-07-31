@@ -8,8 +8,17 @@ const articleRoutes = require("./routes/article.routes")
 const app = express()
 const PORT = process.env.PORT || 3000
 
-app.use(express.json())
-app.use(cors())
+// Configuration CORS plus permissive
+app.use(cors({
+  origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}))
+
+// Augmenter la limite de taille pour les requêtes
+app.use(express.json({ limit: '10mb' }))
+app.use(express.urlencoded({ limit: '10mb', extended: true }))
 
 connectDB()
 

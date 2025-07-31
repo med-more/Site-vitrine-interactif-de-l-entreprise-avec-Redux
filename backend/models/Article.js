@@ -10,18 +10,8 @@ const ArticleSchema = new mongoose.Schema({
   category: {
     type: String,
     required: [true, 'Please add a category'],
-    enum: [
-      'Technology', 
-      'Science', 
-      'Health', 
-      'Business', 
-      'Entertainment', 
-      'Sports', 
-      'Politics',
-      'Education',
-      'Other'
-    ],
-    default: 'Other'
+    trim: true,
+    maxlength: [50, 'Category cannot be more than 50 characters']
   },
   description: {
     type: String,
@@ -53,10 +43,15 @@ const ArticleSchema = new mongoose.Schema({
   image: {
     type: String,
     default: 'default-article.jpg',
-    match: [
-      /\.(jpg|jpeg|png|gif)$/i,
-      'Please use a valid image URL with jpg, jpeg, png, or gif extension'
-    ]
+    validate: {
+      validator: function(v) {
+        // Accepter les URLs d'images ou les placeholders
+        if (!v) return true;
+        if (v.includes('placeholder') || v.includes('data:image')) return true;
+        return /\.(jpg|jpeg|png|gif|svg|webp)$/i.test(v);
+      },
+      message: 'Please use a valid image URL with jpg, jpeg, png, gif, svg, or webp extension'
+    }
   },
   createdAt: {
     type: Date,
