@@ -90,15 +90,15 @@ const Navbar = () => {
             <div className="w-6 h-6 flex flex-col justify-center items-center">
               <motion.span
                 animate={isOpen ? { rotate: 45, y: 6 } : { rotate: 0, y: 0 }}
-                className="w-6 h-0.5 bg-cream-200 block transition-all duration-300 origin-center"
+                className="w-6 h-0.5 bg-cream-500 block transition-all duration-300 origin-center"
               />
               <motion.span
                 animate={isOpen ? { opacity: 0 } : { opacity: 1 }}
-                className="w-6 h-0.5 bg-cream-200 block mt-1.5 transition-all duration-300"
+                className="w-6 h-0.5 bg-cream-500 block mt-1.5 transition-all duration-300"
               />
               <motion.span
                 animate={isOpen ? { rotate: -45, y: -6 } : { rotate: 0, y: 0 }}
-                className="w-6 h-0.5 bg-cream-200 block mt-1.5 transition-all duration-300 origin-center"
+                className="w-6 h-0.5 bg-cream-500 block mt-1.5 transition-all duration-300 origin-center"
               />
             </div>
           </motion.button>

@@ -32,21 +32,19 @@ const Footer = () => {
     {
       title: "Ressources",
       links: [
-        { name: "Documentation", path: "/blog" },
-        { name: "Guides", path: "/blog" },
-        { name: "Tutoriels", path: "/blog" },
-        { name: "FAQ", path: "/contact" },
-        { name: "Support", path: "/contact" },
-        { name: "Communauté", path: "/blog" },
+        { name: "Documentation", path: "/documentation" },
+        { name: "Guides", path: "/guides" },
+        { name: "Tutoriels", path: "/tutoriels" },
+        { name: "FAQ", path: "/faq" },
+        { name: "Support", path: "/support" },
+        { name: "Communauté", path: "/communaute" },
       ],
     },
   ]
 
   const socialLinks = [
-    { name: "GitHub", icon: "🐙", url: "https://github.com/404js" },
-    { name: "LinkedIn", icon: "💼", url: "https://linkedin.com/company/404js" },
-    { name: "Twitter", icon: "🐦", url: "https://twitter.com/404js" },
-    { name: "Dribbble", icon: "🎨", url: "https://dribbble.com/404js" },
+    { name: "GitHub", icon: "🐙", url: "https://github.com/med-more/Site-vitrine-interactif-de-l-entreprise-avec-Redux.git" },
+    { name: "LinkedIn", icon: "💼", url: "https://www.linkedin.com/in/mohammed-baba-919b28336/" },
   ]
 
   return (
@@ -92,13 +90,13 @@ const Footer = () => {
                   <div className="w-8 h-8 bg-primary-500/20 rounded-lg flex items-center justify-center">
                     <span className="text-primary-500">📞</span>
                   </div>
-                  <span className="text-cream-200">+33 1 23 45 67 89</span>
+                  <span className="text-cream-200">+212 652645566</span>
                 </div>
                 <div className="flex items-center space-x-3 text-sm">
                   <div className="w-8 h-8 bg-primary-500/20 rounded-lg flex items-center justify-center">
                     <span className="text-primary-500">📍</span>
                   </div>
-                  <span className="text-cream-200">Paris, France</span>
+                  <span className="text-cream-200">Casablanca</span>
                 </div>
               </div>
             </motion.div>
@@ -174,7 +172,7 @@ const Footer = () => {
               transition={{ duration: 0.6, delay: 0.4 }}
               className="text-muted-foreground text-sm"
             >
-              © {currentYear} 404.js. Tous droits réservés. Fait avec ❤️ à Paris.
+              © {currentYear} 404.js. Tous droits réservés. Fait avec ❤️ à Casa.
             </motion.div>
 
             {/* Social Links */}
