@@ -1,21 +1,64 @@
 "use client"
-import { useParams, Link, Navigate } from "react-router-dom"
+import { useParams, Link } from "react-router-dom"
 import { motion } from "framer-motion"
 import { useSelector } from "react-redux"
 
 const BlogPost = () => {
   const { id } = useParams()
-  const posts = useSelector((state) => state.blog.posts)
+  const { posts, loading } = useSelector((state) => state.blog)
 
-  const findPostById = (posts, id) => posts.find((post) => post.id === Number.parseInt(id))
+  const findPostById = (posts, id) => {
+    // Chercher par _id (MongoDB) ou id (frontend)
+    return posts.find((post) => 
+      post._id === id || 
+      post.id === id ||
+      post._id === id.toString() ||
+      post.id === id.toString()
+    )
+  }
   const post = findPostById(posts, id)
 
+  if (loading) {
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="min-h-screen pt-20 flex items-center justify-center"
+      >
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mb-4"></div>
+          <p className="text-cream-200">Chargement de l'article...</p>
+        </div>
+      </motion.div>
+    )
+  }
+
   if (!post) {
-    return <Navigate to="/blog" replace />
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="min-h-screen pt-20 flex items-center justify-center"
+      >
+        <div className="text-center">
+          <div className="text-6xl mb-6">📝</div>
+          <h2 className="text-2xl font-bold text-cream-200 mb-4">Article non trouvé</h2>
+          <p className="text-muted-foreground mb-8">
+            L'article que vous recherchez n'existe pas ou a été supprimé.
+          </p>
+          <Link to="/blog" className="btn-primary">
+            Retour au blog
+          </Link>
+        </div>
+      </motion.div>
+    )
   }
 
   const getSimilarPosts = (posts, currentPost, count = 3) =>
-    posts.filter((p) => p.id !== currentPost.id && p.category === currentPost.category).slice(0, count)
+    posts.filter((p) => 
+      (p._id !== currentPost._id && p.id !== currentPost.id) && 
+      p.category === currentPost.category
+    ).slice(0, count)
 
   const similarPosts = getSimilarPosts(posts, post)
 
@@ -59,7 +102,7 @@ const BlogPost = () => {
                 {post.category}
               </span>
               <span className="text-cream-200/60 text-sm">
-                {new Date(post.date).toLocaleDateString("fr-FR", {
+                {new Date(post.createdAt || post.date).toLocaleDateString("fr-FR", {
                   year: "numeric",
                   month: "long",
                   day: "numeric",
@@ -181,7 +224,7 @@ const BlogPost = () => {
 
                   <div className="space-y-4">
                     <div className="flex items-center text-sm text-muted-foreground">
-                      <span>{new Date(similarPost.date).toLocaleDateString("fr-FR")}</span>
+                      <span>{new Date(similarPost.createdAt || similarPost.date).toLocaleDateString("fr-FR")}</span>
                       <span className="mx-2">•</span>
                       <span>{similarPost.author}</span>
                     </div>
@@ -193,7 +236,7 @@ const BlogPost = () => {
                     <p className="text-muted-foreground leading-relaxed">{similarPost.excerpt}</p>
 
                     <Link
-                      to={`/blog/${similarPost.id}`}
+                      to={`/blog/${similarPost._id || similarPost.id}`}
                       className="inline-flex items-center text-primary-500 hover:text-primary-400 font-semibold transition-colors duration-300 group"
                     >
                       Lire l'article

@@ -4,22 +4,17 @@ import { useState, useEffect } from "react"
 import { Link } from "react-router-dom"
 import { motion, AnimatePresence } from "framer-motion"
 import { useSelector, useDispatch } from "react-redux"
-import { addPost, updatePost, deletePost, filterByCategory, searchPosts, sortPosts } from "../store/slices/blogSlice"
+import { Formik, Form, Field, ErrorMessage } from 'formik'
+import { fetchArticles, createArticle, updateArticle, deleteArticle, filterByCategory, searchPosts, sortPosts, clearError } from "../store/slices/blogSlice"
+import { useToast } from "../components/Toast"
+import { articleValidationSchema, validateImageFile } from "../utils/validation"
 
 const Blog = () => {
   const dispatch = useDispatch()
-  const { posts, filteredPosts, currentFilter, searchTerm } = useSelector((state) => state.blog)
+  const { posts, filteredPosts, currentFilter, searchTerm, loading, error } = useSelector((state) => state.blog)
+  const { success, error: showError } = useToast()
   const [showForm, setShowForm] = useState(false)
   const [editingPost, setEditingPost] = useState(null)
-  const [formData, setFormData] = useState({
-    title: "",
-    content: "",
-    excerpt: "",
-    author: "",
-    category: "",
-    image: "",
-    tags: [],
-  })
   const [selectedFile, setSelectedFile] = useState(null)
   const [imagePreview, setImagePreview] = useState("")
 
@@ -31,50 +26,62 @@ const Blog = () => {
   const categories = getUniqueCategories(posts)
   const displayPosts = filteredPosts.length > 0 || searchTerm || currentFilter !== "all" ? filteredPosts : posts
 
+  // Charger les articles au montage du composant
+  useEffect(() => {
+    dispatch(fetchArticles())
+  }, [dispatch])
+
+  // Effacer les erreurs quand le composant se monte
+  useEffect(() => {
+    dispatch(clearError())
+  }, [dispatch])
+
   useEffect(() => {
     if (filteredPosts.length === 0 && currentFilter === "all" && !searchTerm) {
       dispatch(filterByCategory("all"))
     }
   }, [dispatch, filteredPosts.length, currentFilter, searchTerm])
 
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    const tagsArray = formData.tags
-      .split(",")
-      .map((tag) => tag.trim())
-      .filter((tag) => tag)
+  const handleSubmit = async (values, { setSubmitting, resetForm }) => {
+    const tagsArray = values.tags
+      ? values.tags.split(",").map((tag) => tag.trim()).filter((tag) => tag)
+      : []
 
-    if (editingPost) {
-      dispatch(
-        updatePost({
-          ...formData,
-          id: editingPost.id,
-          tags: tagsArray,
-        }),
-      )
-    } else {
-      dispatch(
-        addPost({
-          ...formData,
-          tags: tagsArray,
-          image: formData.image || `/placeholder.svg?height=300&width=500&query=${formData.title}`,
-        }),
-      )
+    const articleData = {
+      title: values.title,
+      category: values.category,
+      description: values.excerpt,
+      content: values.content,
+      author: values.author,
+      tags: tagsArray,
+      image: values.image || `/placeholder.svg?height=300&width=500&query=${values.title}`,
     }
 
-    resetForm()
+    try {
+      if (editingPost) {
+        await dispatch(updateArticle({ 
+          articleId: editingPost.id || editingPost._id, 
+          articleData 
+        })).unwrap()
+        success('Article mis à jour avec succès !')
+      } else {
+        await dispatch(createArticle(articleData)).unwrap()
+        success('Article créé avec succès !')
+      }
+      resetForm()
+      setShowForm(false)
+      setEditingPost(null)
+      setSelectedFile(null)
+      setImagePreview("")
+    } catch (error) {
+      console.error('Erreur lors de la sauvegarde:', error)
+      showError(`Erreur lors de la sauvegarde: ${error.message}`)
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const resetForm = () => {
-    setFormData({
-      title: "",
-      content: "",
-      excerpt: "",
-      author: "",
-      category: "",
-      image: "",
-      tags: [],
-    })
     setSelectedFile(null)
     setImagePreview("")
     setShowForm(false)
@@ -82,35 +89,43 @@ const Blog = () => {
   }
 
   const handleEdit = (post) => {
-    setFormData({
-      ...post,
-      tags: post.tags.join(", "),
-    })
     setEditingPost(post)
     setShowForm(true)
   }
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (window.confirm("Êtes-vous sûr de vouloir supprimer cet article ?")) {
-      dispatch(deletePost(id))
+      try {
+        await dispatch(deleteArticle(id)).unwrap()
+        success('Article supprimé avec succès !')
+      } catch (error) {
+        console.error('Erreur lors de la suppression:', error)
+        showError(`Erreur lors de la suppression: ${error.message}`)
+      }
     }
   }
 
-  const handleFileChange = (e) => {
+  const handleFileChange = (e, setFieldValue) => {
     const file = e.target.files[0]
     if (file) {
+      const validationError = validateImageFile(file)
+      if (validationError) {
+        showError(validationError)
+        return
+      }
+      
       setSelectedFile(file)
       const reader = new FileReader()
       reader.onload = (e) => {
         setImagePreview(e.target.result)
-        setFormData({ ...formData, image: e.target.result })
+        setFieldValue('image', e.target.result)
       }
       reader.readAsDataURL(file)
     }
   }
 
-  const handleImageUrlChange = (e) => {
-    setFormData({ ...formData, image: e.target.value })
+  const handleImageUrlChange = (e, setFieldValue) => {
+    setFieldValue('image', e.target.value)
     setSelectedFile(null)
     setImagePreview("")
   }
@@ -252,146 +267,160 @@ const Blog = () => {
                 </button>
               </div>
 
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-semibold text-cream-200 mb-2">Titre *</label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.title}
-                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                      className="input-premium"
-                      placeholder="Titre de l'article"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-cream-200 mb-2">Catégorie *</label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.category}
-                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                      className="input-premium"
-                      placeholder="React, Vue.js, Node.js..."
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-cream-200 mb-2">Extrait *</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.excerpt}
-                    onChange={(e) => setFormData({ ...formData, excerpt: e.target.value })}
-                    className="input-premium"
-                    placeholder="Résumé de l'article en une phrase"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-cream-200 mb-2">Contenu *</label>
-                  <textarea
-                    required
-                    rows={8}
-                    value={formData.content}
-                    onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                    className="textarea-premium"
-                    placeholder="Contenu complet de l'article..."
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-semibold text-cream-200 mb-2">Auteur *</label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.author}
-                      onChange={(e) => setFormData({ ...formData, author: e.target.value })}
-                      className="input-premium"
-                      placeholder="Nom de l'auteur"
-                    />
-                  </div>
-                  <div>
-
-
-
-                    
-                    <label className="block text-sm font-semibold text-cream-200 mb-2">Image de l'article</label>
-                    <div className="space-y-3">
-                      {/* File Upload */}
+              <Formik
+                initialValues={{
+                  title: editingPost?.title || "",
+                  category: editingPost?.category || "",
+                  excerpt: editingPost?.excerpt || "",
+                  content: editingPost?.content || "",
+                  author: editingPost?.author || "",
+                  image: editingPost?.image || "",
+                  tags: editingPost?.tags ? editingPost.tags.join(", ") : "",
+                }}
+                validationSchema={articleValidationSchema}
+                onSubmit={handleSubmit}
+                enableReinitialize
+              >
+                {({ values, errors, touched, isSubmitting, setFieldValue }) => (
+                  <Form className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div>
-                        <label className="block text-xs font-medium text-cream-200/70 mb-2">Uploader une image</label>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleFileChange}
-                          className="input-premium text-sm py-2"
+                        <label className="block text-sm font-semibold text-cream-200 mb-2">Titre *</label>
+                        <Field
+                          type="text"
+                          name="title"
+                          className={`input-premium ${errors.title && touched.title ? 'border-red-500' : ''}`}
+                          placeholder="Titre de l'article"
                         />
+                        <ErrorMessage name="title" component="div" className="text-red-400 text-sm mt-1" />
                       </div>
-                      
-                      {/* URL Input */}
                       <div>
-                        <label className="block text-xs font-medium text-cream-200/70 mb-2">Ou utiliser une URL</label>
-                        <input
-                          type="url"
-                          value={formData.image}
-                          onChange={handleImageUrlChange}
-                          className="input-premium text-sm py-2"
-                          placeholder="https://example.com/image.jpg"
+                        <label className="block text-sm font-semibold text-cream-200 mb-2">Catégorie *</label>
+                        <Field
+                          type="text"
+                          name="category"
+                          className={`input-premium ${errors.category && touched.category ? 'border-red-500' : ''}`}
+                          placeholder="React, Vue.js, Node.js..."
                         />
+                        <ErrorMessage name="category" component="div" className="text-red-400 text-sm mt-1" />
                       </div>
                     </div>
-                  </div>
-                </div>
 
-                {/* Image Preview */}
-                {(imagePreview || formData.image) && (
-                  <div>
-                    <label className="block text-sm font-semibold text-cream-200 mb-2">Aperçu de l'image</label>
-                    <div className="relative">
-                      <img
-                        src={imagePreview || formData.image}
-                        alt="Aperçu"
-                        className="w-full h-48 object-cover rounded-xl border border-border/30"
+                    <div>
+                      <label className="block text-sm font-semibold text-cream-200 mb-2">Extrait *</label>
+                      <Field
+                        type="text"
+                        name="excerpt"
+                        className={`input-premium ${errors.excerpt && touched.excerpt ? 'border-red-500' : ''}`}
+                        placeholder="Résumé de l'article en une phrase"
                       />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setImagePreview("")
-                          setSelectedFile(null)
-                          setFormData({ ...formData, image: "" })
-                        }}
-                        className="absolute top-2 right-2 w-8 h-8 bg-red-500/80 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-red-500 transition-all duration-300"
+                      <ErrorMessage name="excerpt" component="div" className="text-red-400 text-sm mt-1" />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-cream-200 mb-2">Contenu *</label>
+                      <Field
+                        as="textarea"
+                        name="content"
+                        rows={8}
+                        className={`textarea-premium ${errors.content && touched.content ? 'border-red-500' : ''}`}
+                        placeholder="Contenu complet de l'article..."
+                      />
+                      <ErrorMessage name="content" component="div" className="text-red-400 text-sm mt-1" />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-sm font-semibold text-cream-200 mb-2">Auteur *</label>
+                        <Field
+                          type="text"
+                          name="author"
+                          className={`input-premium ${errors.author && touched.author ? 'border-red-500' : ''}`}
+                          placeholder="Nom de l'auteur"
+                        />
+                        <ErrorMessage name="author" component="div" className="text-red-400 text-sm mt-1" />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-cream-200 mb-2">Image de l'article</label>
+                        <div className="space-y-3">
+                          {/* File Upload */}
+                          <div>
+                            <label className="block text-xs font-medium text-cream-200/70 mb-2">Uploader une image</label>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => handleFileChange(e, setFieldValue)}
+                              className="input-premium text-sm py-2"
+                            />
+                          </div>
+                          
+                          {/* URL Input */}
+                          <div>
+                            <label className="block text-xs font-medium text-cream-200/70 mb-2">Ou utiliser une URL</label>
+                            <Field
+                              type="url"
+                              name="image"
+                              onChange={(e) => handleImageUrlChange(e, setFieldValue)}
+                              className={`input-premium text-sm py-2 ${errors.image && touched.image ? 'border-red-500' : ''}`}
+                              placeholder="https://example.com/image.jpg"
+                            />
+                            <ErrorMessage name="image" component="div" className="text-red-400 text-sm mt-1" />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Image Preview */}
+                    {(imagePreview || values.image) && (
+                      <div>
+                        <label className="block text-sm font-semibold text-cream-200 mb-2">Aperçu de l'image</label>
+                        <div className="relative">
+                          <img
+                            src={imagePreview || values.image}
+                            alt="Aperçu"
+                            className="w-full h-48 object-cover rounded-xl border border-border/30"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setImagePreview("")
+                              setSelectedFile(null)
+                              setFieldValue('image', "")
+                            }}
+                            className="absolute top-2 right-2 w-8 h-8 bg-red-500/80 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-red-500 transition-all duration-300"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="block text-sm font-semibold text-cream-200 mb-2">Tags</label>
+                      <Field
+                        type="text"
+                        name="tags"
+                        className={`input-premium ${errors.tags && touched.tags ? 'border-red-500' : ''}`}
+                        placeholder="JavaScript, React, Frontend (séparés par des virgules)"
+                      />
+                      <ErrorMessage name="tags" component="div" className="text-red-400 text-sm mt-1" />
+                    </div>
+
+                    <div className="flex gap-4 pt-6 border-t border-border/30">
+                      <button 
+                        type="submit" 
+                        disabled={isSubmitting}
+                        className="btn-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        ✕
+                        {isSubmitting ? "Enregistrement..." : (editingPost ? "Mettre à jour" : "Publier l'article")}
+                      </button>
+                      <button type="button" onClick={resetForm} className="btn-secondary flex-1">
+                        Annuler
                       </button>
                     </div>
-                  </div>
+                  </Form>
                 )}
-
-                <div>
-                  <label className="block text-sm font-semibold text-cream-200 mb-2">Tags</label>
-                  <input
-                    type="text"
-                    value={formData.tags}
-                    onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
-                    className="input-premium"
-                    placeholder="JavaScript, React, Frontend (séparés par des virgules)"
-                  />
-                </div>
-
-                <div className="flex gap-4 pt-6 border-t border-border/30">
-                  <button type="submit" className="btn-primary flex-1">
-                    {editingPost ? "Mettre à jour" : "Publier l'article"}
-                  </button>
-                  <button type="button" onClick={resetForm} className="btn-secondary flex-1">
-                    Annuler
-                  </button>
-                </div>
-              </form>
+              </Formik>
             </motion.div>
           </motion.div>
         )}
@@ -400,7 +429,40 @@ const Blog = () => {
       {/* Blog Posts */}
       <motion.section variants={itemVariants} className="section-padding relative">
         <div className="container-custom">
-          {displayPosts.length === 0 ? (
+          {/* Affichage des erreurs */}
+          {error && (
+            <motion.div 
+              initial={{ opacity: 0, y: -20 }} 
+              animate={{ opacity: 1, y: 0 }} 
+              className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 mb-8"
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-red-500">⚠️</span>
+                <p className="text-red-400 font-medium">Erreur: {error}</p>
+                <button 
+                  onClick={() => dispatch(clearError())}
+                  className="ml-auto text-red-400 hover:text-red-300"
+                >
+                  ✕
+                </button>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Indicateur de chargement */}
+          {loading && (
+            <motion.div 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              className="text-center py-20"
+            >
+              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mb-4"></div>
+              <p className="text-cream-200">Chargement des articles...</p>
+            </motion.div>
+          )}
+
+          {/* Affichage des articles */}
+          {!loading && displayPosts.length === 0 ? (
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center py-20">
               <div className="text-6xl mb-6">📝</div>
               <h3 className="text-2xl font-bold text-cream-200 mb-4">Aucun article trouvé</h3>
@@ -411,7 +473,7 @@ const Blog = () => {
                 Créer le premier article
               </button>
             </motion.div>
-          ) : (
+          ) : !loading && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {displayPosts.map((post, index) => (
                 <motion.article
@@ -457,7 +519,7 @@ const Blog = () => {
 
                   <div className="space-y-4">
                     <div className="flex items-center justify-between text-sm text-muted-foreground">
-                      <span>{new Date(post.date).toLocaleDateString("fr-FR")}</span>
+                      <span>{new Date(post.createdAt || post.date).toLocaleDateString("fr-FR")}</span>
                       <span>Par {post.author}</span>
                     </div>
 
@@ -479,7 +541,7 @@ const Blog = () => {
                     </div>
 
                     <Link
-                      to={`/blog/${post.id}`}
+                      to={`/blog/${post._id || post.id}`}
                       className="inline-flex items-center text-primary-500 hover:text-primary-400 font-semibold transition-colors duration-300 group"
                     >
                       Lire l'article

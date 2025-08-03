@@ -138,7 +138,7 @@
 
   /* Navigation */
   .nav-link {
-    @apply relative text-cream-200/80 hover:text-cream-200 font-medium transition-all duration-300
+    @apply relative text-cream-400 hover:text-cream-200 font-medium transition-all duration-300
            after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 
            after:bg-primary-500 after:transition-all after:duration-300
            hover:after:w-full;
